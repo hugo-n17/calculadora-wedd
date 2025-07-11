@@ -1,0 +1,185 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora Web con Login</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        .container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            width: 300px;
+        }
+        input, select, button {
+            margin: 10px;
+            padding: 8px;
+            font-size: 16px;
+            width: 80%;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #resultado, #mensaje-login {
+            font-size: 18px;
+            margin-top: 10px;
+            color: #333;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="login-section">
+        <h2>Iniciar Sesión</h2>
+        <input type="text" id="username" placeholder="Usuario" required>
+        <input type="password" id="password" placeholder="Contraseña" required>
+        <button onclick="iniciarSesion()">Iniciar Sesión</button>
+        <div id="mensaje-login"></div>
+    </div>
+
+    <div class="container hidden" id="calculadora-section">
+        <h2>Calculadora Web</h2>
+        <input type="number" id="num1" placeholder="Primer número" required>
+        <select id="operador">
+            <option value="+">+</option>
+            <option value="-">-</option>
+            <option value="*">×</option>
+            <option value="/">÷</option>
+        </select>
+        <input type="number" id="num2" placeholder="Segundo número" required>
+        <button onclick="calcular()">Calcular</button>
+        <button onclick="cerrarSesion()">Cerrar Sesión</button>
+        <div id="resultado"></div>
+    </div>
+
+    <script>
+        // Simulación de base de datos de usuarios (en un entorno real, esto estaría en un backend)
+        const usuarios = {
+            "admin": "12345",
+            "usuario": "password"
+        };
+
+        // Verificar si el usuario ya está logueado
+        if (localStorage.getItem('logueado') === 'true') {
+            document.getElementById('login-section').classList.add('hidden');
+            document.getElementById('calculadora-section').classList.remove('hidden');
+        }
+
+        function iniciarSesion() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const mensaje = document.getElementById('mensaje-login');
+
+            if (usuarios[username] && usuarios[username] === password) {
+                localStorage.setItem('logueado', 'true');
+                document.getElementById('login-section').classList.add('hidden');
+                document.getElementById('calculadora-section').classList.remove('hidden');
+                mensaje.innerText = '';
+            } else {
+                mensaje.innerText = 'Usuario o contraseña incorrectos.';
+            }
+        }
+
+        function cerrarSesion() {
+            localStorage.removeItem('logueado');
+            document.getElementById('calculadora-section').classList.add('hidden');
+            document.getElementById('login-section').classList.remove('hidden');
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+            document.getElementById('mensaje-login').innerText = '';
+        }
+
+        function calcular() {
+            const num1 = parseFloat(document.getElementById('num1').value);
+            const num2 = parseFloat(document.getElementById('num2').value);
+            const operador = document.getElementById('operador').value;
+            let resultado;
+
+            switch (operador) {
+                case '+':
+                    resultado = num1 + num2;
+                    break;
+                case '-':
+                    resultado = num1 - num2;
+                    break;
+                case '*':
+                    resultado = num1 * num2;
+                    break;
+                case '/':
+                    if (num2 !== 0) {
+                        resultado = num1 / num2;
+                    } else {
+                        document.getElementById('resultado').innerText = 'Error: No se puede dividir por cero.';
+                        return;
+                    }
+                    break;
+                default:
+                    document.getElementById('resultado').innerText = 'Error: Operador no válido.';
+                    return;
+            }
+
+            document.getElementById('resultado').innerText = `Resultado: ${num1} ${operador} ${num2} = ${resultado.toFixed(2)}`;
+        }
+    </script>
+</body>
+</html>
